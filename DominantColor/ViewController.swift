@@ -28,18 +28,16 @@ class ViewController: UIViewController {
         dominantColorImageView.set(image: dominantColorImage, animated: true)
     }
     
-    private lazy var images: [UIImage] = {
+    private lazy var imageURLs: [URL] = {
         let imagesDirURL = Bundle.main.resourceURL!.appendingPathComponent("images", isDirectory: true)
         
-        return try! FileManager.default.contentsOfDirectory(at: imagesDirURL, includingPropertiesForKeys: nil).map {
-            UIImage(data: try! Data(contentsOf: $0))!
-        }
+        return try! FileManager.default.contentsOfDirectory(at: imagesDirURL, includingPropertiesForKeys: nil)
         
     }()
     
     private var index = 0 {
         didSet {
-            let image = images[circular: index]
+            let image = downsampleImage(at: imageURLs[circular: index], maxSize: avatarImageView.bounds.maxDimension)
             setAvatarImage(to: image)
             setDominantColorImage(from: image)
         }
@@ -52,11 +50,27 @@ class ViewController: UIViewController {
             self.index += 1
         }
     }
-
-    override func viewDidLoad() {
-        super.viewDidLoad()
-        // Do any additional setup after loading the view.
+    
+    // Credits: https://www.swiftjectivec.com/optimizing-images/
+    func downsampleImage(at url: URL, maxSize: CGFloat) -> UIImage
+    {
+        let sourceOptions = [kCGImageSourceShouldCache:false] as CFDictionary
+        let source = CGImageSourceCreateWithURL(url as CFURL, sourceOptions)!
+        let downsampleOptions = [
+            kCGImageSourceCreateThumbnailFromImageAlways:true,
+            kCGImageSourceThumbnailMaxPixelSize:maxSize,
+            kCGImageSourceShouldCacheImmediately:true,
+            kCGImageSourceCreateThumbnailWithTransform:true,
+        ] as CFDictionary
         
+        let downsampledImage = CGImageSourceCreateThumbnailAtIndex(source, 0, downsampleOptions)!
+        
+        return UIImage(cgImage: downsampledImage)
+    }
+
+    // MARK: Overrides
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
         startTimer()
     }
 }
@@ -80,5 +94,17 @@ fileprivate extension UIImageView {
 fileprivate extension Array {
     subscript(circular index: Index) -> Element {
         return self[index % count]
+    }
+}
+
+fileprivate extension CGSize {
+    var max: CGFloat {
+        return Swift.max(width, height)
+    }
+}
+
+fileprivate extension CGRect {
+    var maxDimension: CGFloat {
+        return size.max
     }
 }
